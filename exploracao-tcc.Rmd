@@ -1,0 +1,442 @@
+---
+title: "Exploração de evasão TCC"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(here)
+library(dplyr)
+library(tidyquery)
+library(plotly)
+library(factoextra)
+library(NbClust)
+
+theme_set(theme_gray())
+```
+
+```{r}
+# SEMPRE read_csv NUNCA read.csv
+alunos = read_csv(
+    here("Dados-UFCG-jul2021/alunos.csv"),
+        col_types = cols(
+        
+      
+    ),
+)
+
+```
+```{r}
+#ALU_ANO_INGRESSO
+# Filtrando alunos n evadidos
+# Filtrando alunos evadidos de 2019 a 2019
+alunos = alunos %>% filter(ALU_ANO_EVASA > 2008, ALU_ANO_EVASA < 2020, ALU_CCU_CUR_COD_CURSO==14102100, !is.na(ALU_ANO_EVASA))
+```
+
+```{r}
+options(repr.plot.width = 14, repr.plot.height = 7)
+```
+
+```{r}
+p1 <- alunos %>%
+  group_by(ALU_FORMA_EVASAO) %>%
+  summarise(
+    contagem = n()) %>%
+
+  ggplot(aes(x = reorder(ALU_FORMA_EVASAO,(-contagem)), y=contagem,label=contagem,fill=as.factor(ALU_FORMA_EVASAO))) +
+  geom_bar(stat="identity",width = 0.9,alpha=0.5) +
+  geom_text(size= 3.5, vjust = -0.3) +
+  labs(
+    x="Código de evasão",
+    y="Quantidade"
+  ) +
+  scale_fill_discrete(name="Forma de evasão",
+                  breaks=c("0","1", "2", "3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","50"),
+                  labels=c("Aluno regularmente matriculado", "Graduado", "Transferência para outra Instituição de Ensino Superior","Falecimento","Abandono de curso","Cancelamento de matrícula","Cancelamento para mudança de curso","Cancelamento por decisão judicial","Cancelamento por solicitação do aluno","Suspensão temporária","Curso concluído - não colou grau","Cancelamento por não cumprimento da PEC","Reentrada no curso (novo vestibular)","Cumprimento convênio","Novo regimento","Não comparecimento a cadastro", "Remanejado de curso","Não compareceu ao remanejamento","Não compareceu à matrícula - Alunos ingressantes","Término de intercâmbio","Graduando por decisão judicial","Matrícula cancelada por reprovação por falta","Matrícula cancelada por reprovações na mesma disciplina","Matrícula suspensa - Débito na biblioteca","Aguardando cadastramento
+"))
+
+ggsave("fig.png",p1,width = 14,
+  height = 7)
+
+                         
+```
+
+```{r}
+p1
+```
+```{r}
+#Filtrando os alunos de interesse:
+# 22 - Mátricula cancelada por reprovações na mesma disciplina
+# 4 - Abandono de curso
+# 21 - Mátricula cancelada por reprovação por falta
+# 8 - Cancelamento por solicitação do aluno
+
+alunos = alunos %>% filter(ALU_FORMA_EVASAO == 22 | ALU_FORMA_EVASAO == 4| ALU_FORMA_EVASAO == 21 | ALU_FORMA_EVASAO == 8)
+
+```
+
+```{r}
+# SEMPRE read_csv NUNCA read.csv
+historico = read_csv(
+    here("Dados-UFCG-jul2021/historico.csv"),
+    col_types = cols(
+        
+        MAT_TUR_PERIODO = col_character(),
+        MAT_TUR_ANO = col_character()
+      
+    )
+    
+    
+)
+historico
+```
+
+# Removendo disciplinas ainda em curso
+```{r}
+
+historico = historico %>% filter(MAT_SITUACAO != 1)
+
+```
+
+
+```{r}
+
+alunos
+
+```
+
+
+```{r}
+# SEMPRE read_csv NUNCA read.csv
+disciplinas = read_csv(
+    here("Dados-UFCG-jul2021/disciplinas-geral.csv")
+)
+disciplinas
+
+```
+
+```{r}
+
+historico_cc <- query(
+"SELECT a.ALU_MATRICULA, a.ALU_FORMA_EVASAO, a.ALU_TIPO_RESERVA_VAGAS, a.ALU_SEXO, a.ALU_ANO_NASCIMENTO, h.MAT_TUR_DIS_DISCIPLINA, h.MAT_SITUACAO,h.MAT_TIPO_MATRICULA, a.ALU_ANO_EVASA, h.MAT_TUR_ANO,h.MAT_TUR_PERIODO
+
+  FROM alunos a LEFT JOIN historico h ON a.ALU_MATRICULA = h.MAT_ALU_MATRICULA;"
+)
+```
+#Criar coluna SEMESTRE
+#Alunos com histórico estranho.
+#113210439
+#113210072
+```{r}
+historico_cc <- historico_cc %>% mutate(SEMESTRE = paste(MAT_TUR_ANO,MAT_TUR_PERIODO, sep="."))
+```
+
+# Calcular semestres 
+```{r}
+
+semestres <- query(
+"SELECT p.ALU_MATRICULA as matricula, COUNT(DISTINCT(SEMESTRE)) as n_semestres
+
+  FROM historico_cc p
+  GROUP BY p.ALU_MATRICULA"
+)
+```
+
+```{r}
+semestres %>% ggplot(aes(x = n_semestres)) + geom_bar()
+```
+
+
+
+```{r}
+
+result <- query(
+"SELECT p.ALU_MATRICULA, p.ALU_FORMA_EVASAO,p.ALU_TIPO_RESERVA_VAGAS, p.ALU_SEXO, p.ALU_ANO_NASCIMENTO, p.MAT_TUR_DIS_DISCIPLINA, d.DIS_QTD_CR, d.DIS_DESCRICAO, p.ALU_ANO_EVASA, p.MAT_SITUACAO
+
+  FROM historico_cc p LEFT JOIN disciplinas d ON p.MAT_TUR_DIS_DISCIPLINA = d.DIS_DISCIPLINA;"
+)
+```
+
+
+
+```{r}
+alunos_ficha = query(
+"SELECT r.ALU_MATRICULA as matricula, r.ALU_FORMA_EVASAO as forma_evasao, r.ALU_ANO_EVASA as ano_evasao, r.ALU_TIPO_RESERVA_VAGAS, r.ALU_SEXO as sexo, r.ALU_ANO_NASCIMENTO as ano_nascimento, SUM(r.DIS_QTD_CR) as creditos_acumulados
+  FROM result r
+  GROUP BY r.ALU_MATRICULA, r.ALU_FORMA_EVASAO, r.ALU_ANO_EVASA, r.ALU_TIPO_RESERVA_VAGAS,r.ALU_SEXO,r.ALU_ANO_NASCIMENTO
+  ;"
+)
+```
+
+#SELECIONA AS DISCIPLINAS APROVEITADAS, CONTAM SÓ AS APROVADAS(CÓDIGO 3), incluindo as dispensadas:
+
+
+```{r}
+
+historico2 <- historico %>% filter(MAT_SITUACAO==3)
+
+historico_cc2 <- query(
+"SELECT a.ALU_MATRICULA, h.MAT_TUR_DIS_DISCIPLINA
+
+  FROM alunos a LEFT JOIN historico2 h ON a.ALU_MATRICULA = h.MAT_ALU_MATRICULA;"
+)
+
+result2 <- query(
+"SELECT p.ALU_MATRICULA, d.DIS_QTD_CR
+  FROM historico_cc2 p LEFT JOIN disciplinas d ON p.MAT_TUR_DIS_DISCIPLINA = d.DIS_DISCIPLINA;"
+)
+```
+
+
+```{r}
+alunos_aprovados = query(
+"SELECT r.ALU_MATRICULA as matricula, SUM(r.DIS_QTD_CR) as creditos_aproveitados
+  FROM result2 r
+  GROUP BY r.ALU_MATRICULA;"
+)
+```
+
+# Verificar históricos especificos
+```{r}
+result %>% filter(ALU_MATRICULA==112150436)
+```
+
+```{r}
+# Calculando Taxa de sucesso
+
+alunos_ficha = merge(alunos_ficha,alunos_aprovados)
+
+alunos_ficha = alunos_ficha %>% mutate(taxa_sucesso= creditos_aproveitados / creditos_acumulados)
+
+# Calculando Carga Média (Créditos por semestre)
+
+alunos_ficha <- merge(alunos_ficha,semestres)
+
+alunos_ficha <- alunos_ficha %>% mutate(carga_media = creditos_acumulados/ n_semestres)
+
+
+# Adicionando idade do aluno no ano de evasão
+alunos_ficha <- alunos_ficha %>% mutate(idade_evasao=ano_evasao - ano_nascimento) 
+
+# Removendo alunos sem histórico 
+alunos_ficha <- alunos_ficha %>% filter(!is.na(taxa_sucesso))
+``` 
+
+```{r}
+matriculas <- alunos_ficha[1]
+write_csv(matriculas, here("Dados-UFCG-jul2021/matriculas.csv"))
+
+
+matriculas = read_csv(
+    here("Dados-UFCG-jul2021/matriculas.csv"),
+        col_types = cols(
+        
+      
+    ),
+)
+```
+
+
+# Distribuição dos creditos acumulados entre alunos divididos por tipo de evasão
+```{r}
+p2 <- alunos_ficha %>% ggplot(aes(x=creditos_acumulados,fill=as.factor(forma_evasao))) +
+  facet_wrap(~forma_evasao,ncol=1) + 
+  geom_histogram(binwidth = 10) +  scale_fill_discrete(name="Forma de evasão",
+                  breaks=c("0","1", "2", "3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","50"),
+                  labels=c("Aluno regularmente matriculado", "Graduado", "Transferência para outra Instituição de Ensino Superior","Falecimento","Abandono de curso","Cancelamento de matrícula","Cancelamento para mudança de curso","Cancelamento por decisão judicial","Cancelamento por solicitação do aluno","Suspensão temporária","Curso concluído - não colou grau","Cancelamento por não cumprimento da PEC","Reentrada no curso (novo vestibular)","Cumprimento convênio","Novo regimento","Não comparecimento a cadastro", "Remanejado de curso","Não compareceu ao remanejamento","Não compareceu à matrícula - Alunos ingressantes","Término de intercâmbio","Graduando por decisão judicial","Matrícula cancelada por reprovação por falta","Matrícula cancelada por reprovações na mesma disciplina","Matrícula suspensa - Débito na biblioteca","Aguardando cadastramento
+"))
+```
+
+```{r}
+p2
+```
+
+# Separando os grupos
+```{r}
+grupo_1 = alunos_ficha %>% filter(creditos_acumulados <= 40, creditos_aproveitados <= 24)
+grupo_2 = anti_join(alunos_ficha,grupo_1)
+```
+
+
+```{r}
+grupo_1 %>% ggplot(aes(x=creditos_acumulados,fill=as.factor(forma_evasao))) +
+  facet_wrap(~forma_evasao,ncol=1) + 
+  geom_histogram(binwidth = 10) +  scale_fill_discrete(name="Forma de evasão",
+                  breaks=c("0","1", "2", "3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","50"),
+                  labels=c("Aluno regularmente matriculado", "Graduado", "Transferência para outra Instituição de Ensino Superior","Falecimento","Abandono de curso","Cancelamento de matrícula","Cancelamento para mudança de curso","Cancelamento por decisão judicial","Cancelamento por solicitação do aluno","Suspensão temporária","Curso concluído - não colou grau","Cancelamento por não cumprimento da PEC","Reentrada no curso (novo vestibular)","Cumprimento convênio","Novo regimento","Não comparecimento a cadastro", "Remanejado de curso","Não compareceu ao remanejamento","Não compareceu à matrícula - Alunos ingressantes","Término de intercâmbio","Graduando por decisão judicial","Matrícula cancelada por reprovação por falta","Matrícula cancelada por reprovações na mesma disciplina","Matrícula suspensa - Débito na biblioteca","Aguardando cadastramento
+"))
+
+```
+
+
+```{r}
+grupo_2 %>% ggplot(aes(x=creditos_acumulados,fill=as.factor(forma_evasao))) +
+  facet_wrap(~forma_evasao,ncol=1) + 
+  geom_histogram(binwidth = 10) +  scale_fill_discrete(name="Forma de evasão",
+                  breaks=c("0","1", "2", "3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","50"),
+                  labels=c("Aluno regularmente matriculado", "Graduado", "Transferência para outra Instituição de Ensino Superior","Falecimento","Abandono de curso","Cancelamento de matrícula","Cancelamento para mudança de curso","Cancelamento por decisão judicial","Cancelamento por solicitação do aluno","Suspensão temporária","Curso concluído - não colou grau","Cancelamento por não cumprimento da PEC","Reentrada no curso (novo vestibular)","Cumprimento convênio","Novo regimento","Não comparecimento a cadastro", "Remanejado de curso","Não compareceu ao remanejamento","Não compareceu à matrícula - Alunos ingressantes","Término de intercâmbio","Graduando por decisão judicial","Matrícula cancelada por reprovação por falta","Matrícula cancelada por reprovações na mesma disciplina","Matrícula suspensa - Débito na biblioteca","Aguardando cadastramento
+"))
+```
+
+
+# Agrupamento com Kmeans (grupo 1)
+
+```{r}
+set.seed(1)
+
+#grupo_1_rotulado <- grupo_1[,-1]
+#row.names(grupo_1_rotulado) <- grupo_1[,1]
+
+
+
+grupo_1_numerical <- grupo_1 %>% select("forma_evasao","ano_evasao","ano_nascimento","taxa_sucesso","idade_evasao","carga_media","sexo")
+
+# Normalization
+grupo_1_numerical_norm <- as.data.frame(scale(grupo_1_numerical))
+
+```
+
+```{r}
+# Elbow method
+a <- fviz_nbclust(grupo_1_numerical_norm, kmeans, method = "wss") +
+  
+  labs(subtitle = "Elbow method") # add subtitle
+
+a
+```
+
+```{r}
+
+grupo_1_kmeans <- kmeans(grupo_1_numerical_norm, centers=7)
+#grupo_1$grupo <- as.character(grupo_1_kmeans$cluster)
+
+```
+
+
+```{r}
+# Dimension reduction using PCA
+pca <- prcomp(grupo_1_numerical,  scale = TRUE)
+# Coordinates of individuals
+ind.coord <- as.data.frame(get_pca_ind(pca)$coord)
+# Add clusters obtained using the K-means algorithm
+ind.coord$cluster <- factor(grupo_1_kmeans$cluster)
+
+ind.coord$matricula <- grupo_1$matricula
+ind.coord$idade_evasao <- grupo_1$idade_evasao
+ind.coord$carga_media <- grupo_1$carga_media
+ind.coord$taxa_sucesso <- grupo_1$taxa_sucesso
+ind.coord$forma_evasao <- grupo_1$forma_evasao
+ind.coord$sexo <- grupo_1$sexo
+ind.coord$ano_nascimento <- grupo_1$ano_nascimento
+
+
+
+
+# Data inspection
+head(ind.coord)
+```
+
+```{r}
+# Percentage of variance explained by dimensions
+eigenvalue <- round(get_eigenvalue(pca), 1)
+variance.percent <- eigenvalue$variance.percent
+head(eigenvalue)
+
+```
+
+
+```{r}
+library(ggpubr)
+ggscatter(
+  ind.coord, x = "Dim.1", y = "Dim.2", 
+  color = "cluster", palette = "npg", ellipse = TRUE, ellipse.type = "convex", ggtheme = theme_bw(),
+  xlab = paste0("Dim 1 (", variance.percent[1], "% )" ),
+  ylab = paste0("Dim 2 (", variance.percent[2], "% )" )
+) +
+  stat_mean(aes(color = cluster), size = 7)
+```
+```{r}
+fig <- plot_ly(data = ind.coord,type="scatter",mode="markers", size=12,x = ~Dim.1, y = ~Dim.2, color = ~cluster, text = ~paste("Matrícula: ", matricula, '<br>Idade:', idade_evasao, '<br>Carga média:', carga_media,'<br>Taxa de sucesso:', taxa_sucesso,'<br>Sexo:', sexo, '<br>Forma de evasão:', forma_evasao,'<br>Ano de nascimento:', ano_nascimento))
+
+fig
+```
+
+# Agrupamento com Kmeans (grupo 2)
+
+
+```{r}
+
+#grupo_2_rotulado <- grupo_2[,-1]
+#row.names(grupo_2_rotulado) <- grupo_2[,1]
+
+grupo_2_numerical = grupo_2 %>% select("forma_evasao","ano_evasao","sexo","ano_nascimento","taxa_sucesso","idade_evasao","carga_media")
+
+# Normalization
+grupo_2_numerical_norm <- as.data.frame(scale(grupo_2_numerical))
+
+```
+
+```{r}
+# Elbow method
+fviz_nbclust(grupo_2_numerical_norm, kmeans, method = "wss") +
+  geom_vline(xintercept = 4, linetype = 2) + # add line for better visualisation
+  labs(subtitle = "Elbow method") # add subtitle
+```
+
+```{r}
+
+grupo_2_kmeans <- kmeans(grupo_2_numerical_norm, centers=7)
+#grupo_1$grupo <- as.character(grupo_1_kmeans$cluster)
+
+```
+
+
+```{r}
+# Dimension reduction using PCA
+pca <- prcomp(grupo_2_numerical,  scale = TRUE)
+# Coordinates of individuals
+ind.coord <- as.data.frame(get_pca_ind(pca)$coord)
+# Add clusters obtained using the K-means algorithm
+ind.coord$cluster <- factor(grupo_2_kmeans$cluster)
+
+ind.coord$matricula <- grupo_2$matricula
+ind.coord$idade_evasao <- grupo_2$idade_evasao
+ind.coord$carga_media <- grupo_2$carga_media
+ind.coord$taxa_sucesso <- grupo_2$taxa_sucesso
+ind.coord$forma_evasao <- grupo_2$forma_evasao
+ind.coord$sexo <- grupo_2$sexo
+ind.coord$ano_nascimento <- grupo_2$ano_nascimento
+
+# Data inspection
+head(ind.coord)
+```
+
+```{r}
+# Percentage of variance explained by dimensions
+eigenvalue <- round(get_eigenvalue(pca), 1)
+variance.percent <- eigenvalue$variance.percent
+head(eigenvalue)
+
+```
+
+
+```{r}
+library(ggpubr)
+ggscatter(
+  ind.coord, x = "Dim.1", y = "Dim.2", 
+  color = "cluster", palette = "npg", ellipse = TRUE, ellipse.type = "convex", ggtheme = theme_bw(),
+  xlab = paste0("Dim 1 (", variance.percent[1], "% )" ),
+  ylab = paste0("Dim 2 (", variance.percent[2], "% )" )
+) +
+  stat_mean(aes(color = cluster), size = 4)
+```
+```{r}
+fig <- plot_ly(data = ind.coord,type="scatter",mode="markers", size=12,x = ~Dim.1, y = ~Dim.2, color = ~cluster, text = ~paste("Matrícula: ", matricula, '<br>Idade:', idade_evasao, '<br>Carga média:', carga_media,'<br>Taxa de sucesso:', taxa_sucesso,'<br>Sexo:', sexo, '<br>Forma de evasão:', forma_evasao,'<br>Ano de nascimento:', ano_nascimento))
+
+fig
+```
+
+
