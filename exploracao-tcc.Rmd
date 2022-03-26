@@ -58,6 +58,23 @@ disciplinas = read_csv(
     here("Dados-UFCG-jul2021/disciplinas-geral.csv")
 )
 
+linkedin = read_csv(
+    here("Dados-UFCG-jul2021/ficha_linkedin.csv"),
+        col_types = cols(
+         cpf = col_character())
+)
+
+persistente = read.csv("Dados-UFCG-jul2021/linkedin/cluster1.csv",encoding = "UTF-8")
+
+experiente = read.csv(
+    "Dados-UFCG-jul2021/linkedin/cluster2.csv",encoding = "UTF-8"
+)
+mediano = read.csv(
+   "Dados-UFCG-jul2021/linkedin/cluster3.csv",encoding = "UTF-8"
+)
+habitual =  read.csv(
+    "Dados-UFCG-jul2021/linkedin/cluster4.csv",encoding = "UTF-8"
+)
 
 ```
 
@@ -372,7 +389,6 @@ perfis_2 = merge(nn,perfis_2) %>% filter(ano_ingresso == ano_ingresso_u)
 
 ```
 
-#xxxxxxxxxxxxxxxxxx
 
 ```{r}
 perfis_2 = perfis_2 %>% select(cpf, forma_evasao,idade_evasao,ano_evasao)
@@ -500,8 +516,8 @@ perfis_s <- perfis %>% select("taxa_sucesso","n_semestres","carga_media","idade_
 
 c <- elbow(perfis_s)
 
-ggsave("grafico10.png",c,width =5 ,
-  height = 4)
+ggsave("grafico10.png",c,width =6 ,
+  height = 3)
 
 norm_data <- as.data.frame(scale(perfis_s))
 result <- kmeans(norm_data, centers=4)
@@ -515,7 +531,7 @@ r
 
 #k %>% ggplot(aes(x=taxa_sucesso,y=carga_media,color=idade_evasao)) + geom_point(size=9)
 
-pacoplot(r[2:5] , r$cluster,labelSizes = list(yaxis = 13.4,yticks = 13))
+pacoplot(r[2:5] , r$cluster,labelSizes = list(yaxis = 13.7,yticks = 13))
 
 
 ```
@@ -588,12 +604,6 @@ grafico3
 # Linkedin
 
 ```{r}
-linkedin = read_csv(
-    here("Dados-UFCG-jul2021/ficha_linkedin.csv"),
-        col_types = cols(
-         cpf = col_character())
-)
-
 fix = function(x){
   if(nchar(x) == 10){
     return (paste("0",x,sep=""))
@@ -647,23 +657,6 @@ ggsave("grafico12.png",g,width = 5,height = 4)
 ```
 
 #Análise de Texto
-
-```{r}
-
-
-persistente = read.csv("Dados-UFCG-jul2021/linkedin/cluster1.csv",encoding = "UTF-8")
-
-experiente = read.csv(
-    "Dados-UFCG-jul2021/linkedin/cluster2.csv",encoding = "UTF-8"
-)
-mediano = read.csv(
-   "Dados-UFCG-jul2021/linkedin/cluster3.csv",encoding = "UTF-8"
-)
-habitual =  read.csv(
-    "Dados-UFCG-jul2021/linkedin/cluster4.csv",encoding = "UTF-8"
-)
-```
-
 
 ```{r}
 set.seed(32)
