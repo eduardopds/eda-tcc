@@ -126,34 +126,7 @@ grafico1
 ```
 
 
-```{r}
-grafico2 <- alunos_evadidos %>%
-  group_by(ALU_FORMA_EVASAO) %>%
-  summarise(
-    contagem = n(), .groups = 'drop') %>%
 
-  ggplot(aes(x = reorder(ALU_FORMA_EVASAO,(-contagem)), y=contagem,label=contagem,fill=as.factor(ALU_FORMA_EVASAO))) +
-  geom_bar(stat="identity",width = 0.9,alpha=0.5) +
-  geom_text(size= 3.5, vjust = -0.3) +
-  labs(
-    x="Código de evasão",
-    y="Número de alunos"
-  ) +
-  scale_fill_discrete(name="Forma de evasão",
-                  breaks=c("0","001", "002", "003","004","005","006","007","008","009","010","011","012","013","014","015","016","017","018","019","020","021","022","023","050"),
-                  labels=c("Aluno regularmente matriculado", "Graduado", "Transferência para outra Instituição de Ensino Superior","Falecimento","Abandono de curso","Cancelamento de matrícula","Cancelamento para mudança de curso","Cancelamento por decisão judicial","Cancelamento por solicitação do aluno","Suspensão temporária","Curso concluído - não colou grau","Cancelamento por não cumprimento da PEC","Reentrada no curso (novo vestibular)","Cumprimento convênio","Novo regimento","Não comparecimento a cadastro", "Remanejado de curso","Não compareceu ao remanejamento","Não compareceu à matrícula - Alunos ingressantes","Término de intercâmbio","Graduando por decisão judicial","Matrícula cancelada por reprovação por falta","Matrícula cancelada por reprovações na mesma disciplina","Matrícula suspensa - Débito na biblioteca","Aguardando cadastramento
-"),guide="none") + theme(text=element_text(family="A"))
-
-
-ggsave("grafico2.png",grafico2,width = 5,
-  height = 4)
-
-                    
-```
-
-```{r}
-grafico2
-```
 
 # Filtragem e preparação dos dados (Construção do perfil)
 
@@ -252,7 +225,6 @@ alunos_aprovados = query(
 
 
 ```{r}
-# Trocar  aproveitados -> integralizados /acumulados -> matriculados
 # Calculando Taxa de sucesso
 
 perfis <- merge(perfis,alunos_aprovados)
@@ -284,27 +256,12 @@ perfis_1 = perfis %>% filter(cpf %in% aux)
 
 #filtrar as matriculas de interesse
 
-perfis_1 = perfis_1 %>% filter(forma_evasao == 22 | forma_evasao == 4| forma_evasao == 21 | forma_evasao == 8| forma_evasao == 14| forma_evasao == 5|forma_evasao == 6)
+perfis_1 = perfis_1 %>% filter(forma_evasao %in% c(22,4,21,8,6,5,14,7,2,10))
 
 perfis_1 %>% count(cpf)
 
 
 #Replace na coluna de evasão
-
-altera = function(x){
-  if(x == 4 | x == 5){
-    return (4)
-  }else if(x == 14 | x == 6){
-    return (6)
-  }else{
-    return (x);
-  }
-}
-altera_V <- Vectorize(altera)
-
-
-
-perfis_1 <- perfis_1 %>% mutate(forma_evasao = altera_V(forma_evasao))
 
 perfis_1 <- perfis_1 %>% select(cpf,forma_evasao,sexo,ano_nascimento,ano_evasao,creditos_matriculados,creditos_integralizados,n_semestres,idade_evasao)
 
@@ -315,7 +272,7 @@ perfis_1 <- perfis_1 %>% select(cpf,forma_evasao,sexo,ano_nascimento,ano_evasao,
 
 perfis_2 = perfis %>% filter(!cpf %in% aux)
 
-aux2 = perfis_2 %>% filter(forma_evasao %in% c(22,4,21,8,6,5,14)) #7,2,10
+aux2 = perfis_2 %>% filter(forma_evasao %in% c(22,4,21,8,6,5,14,7,2,10)) #7,2,10
 
 aux2 = aux2[['cpf']]
 
@@ -392,7 +349,6 @@ perfis_2 = merge(nn,perfis_2) %>% filter(ano_ingresso == ano_ingresso_u)
 
 ```{r}
 perfis_2 = perfis_2 %>% select(cpf, forma_evasao,idade_evasao,ano_evasao)
-perfis_2 = perfis_2 %>% mutate(forma_evasao= altera_V(forma_evasao))
 
 perfis_2  = merge(perfis_2,p1)
 perfis_2  = merge(perfis_2,p2)
@@ -410,14 +366,11 @@ perfis <- bind_rows(perfis_1,perfis_2)
 perfis <- perfis %>% mutate(taxa_sucesso= creditos_integralizados / creditos_matriculados)
 perfis <- perfis %>% mutate(carga_media = creditos_matriculados/ n_semestres)
 
-perfis <- perfis %>% filter(!is.na(taxa_sucesso))
-
-
+#808
 ```
 
-
 ```{r}
-g <- perfis %>%
+grafico2 <- perfis %>%
   group_by(forma_evasao) %>%
   summarise(
     contagem = n(), .groups = 'drop') %>%
@@ -430,11 +383,56 @@ g <- perfis %>%
     y="Número de alunos"
   ) +
   scale_fill_discrete(name="Forma de evasão",
-                  breaks=c("0","001", "002", "003","004","005","006","007","008","009","010","011","012","013","014","015","016","017","018","019","020","021","022","023","050"),
+                  breaks=c("0","1", "2", "3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","50"),
+                  labels=c("Aluno regularmente matriculado", "Graduado", "Transferência para outra IES","Falecimento","Abandono de curso","Cancelamento de matrícula","Cancelamento para mudança de curso","Cancelamento por decisão judicial","Cancelamento por solicitação do aluno","Suspensão temporária","Curso concluído - não colou grau","Cancelamento por não cumprimento da PEC","Reentrada no curso (novo vestibular)","Cumprimento convênio","Novo regimento","Não comparecimento a cadastro", "Remanejado de curso","Não compareceu ao remanejamento","Não compareceu à matrícula - Alunos ingressantes","Término de intercâmbio","Graduando por decisão judicial","Reprovação por falta","3 reprovações na mesma disciplina","Matrícula suspensa - Débito na biblioteca","Aguardando cadastramento
+")) + theme(text=element_text(family="A"),  legend.position = c(0.99, 0.99),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6))
+
+grafico2
+
+ggsave("grafico2.png",grafico2,width = 5.5,
+ height = 4)
+
+                    
+
+```
+
+```{r}
+perfis <- perfis %>% filter(!forma_evasao %in% c(7,2,10))
+```
+
+```{r}
+perfis <- perfis %>% filter(!is.na(taxa_sucesso))
+
+```
+
+
+```{r}
+g <- perfis %>%
+  group_by(forma_evasao_s) %>%
+  summarise(
+    contagem = n(), .groups = 'drop') %>%
+
+  ggplot(aes(x = reorder(forma_evasao_s,(-contagem)), y=contagem,label=contagem,fill=as.factor(forma_evasao_s))) +
+  geom_bar(stat="identity",width = 0.9,alpha=0.5) +
+  geom_text(size= 3.5, vjust = -0.3) +
+  labs(
+    x="Tipo de evasão",
+    y="Número de alunos"
+  ) + scale_fill_discrete(name="Forma de evasão",
+                  breaks=c("0","1", "2", "3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","50"),
                   labels=c("Aluno regularmente matriculado", "Graduado", "Transferência para outra Instituição de Ensino Superior","Falecimento","Abandono de curso","Cancelamento de matrícula","Cancelamento para mudança de curso","Cancelamento por decisão judicial","Cancelamento por solicitação do aluno","Suspensão temporária","Curso concluído - não colou grau","Cancelamento por não cumprimento da PEC","Reentrada no curso (novo vestibular)","Cumprimento convênio","Novo regimento","Não comparecimento a cadastro", "Remanejado de curso","Não compareceu ao remanejamento","Não compareceu à matrícula - Alunos ingressantes","Término de intercâmbio","Graduando por decisão judicial","Matrícula cancelada por reprovação por falta","Matrícula cancelada por reprovações na mesma disciplina","Matrícula suspensa - Débito na biblioteca","Aguardando cadastramento
-"),guide="none") + theme(text=element_text(family="A"))
+")) + theme(text=element_text(family="A"),  legend.position = c(0.99, 0.99),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6))
 
 g
+
+ggsave("grafico50.png",g,width = 7,
+  height = 4)
 
                     
 ```
@@ -449,16 +447,13 @@ g
 
 altera = function(x){
   if(x == 4){
-    return ("Abandono de Curso")
+    return ("Abandono")
   }else if(x == 6){
-    return ("Mudança de curso")
+    return ("Novo Curso")
   }else if (x == 8){
-    return ("Cancelamento por solicitação do aluno");
-  } else if( x== 22){
-    return("Reprovação por três vezes na mesma disciplina")
-  }else{
-    #21
-    return("Reprovação por falta em todas as disciplinas de um período")
+    return ("Cancelamento");
+  } else if( x== 22 | x==21){
+    return("Desempenho")
   }
 }
 altera_V <- Vectorize(altera)
@@ -468,21 +463,6 @@ altera_V <- Vectorize(altera)
 
 ```{r}
 perfis = perfis %>% mutate(forma_evasao_s = altera_V(forma_evasao)) %>% mutate(forma_evasao_s = as.factor(forma_evasao_s))
-```
-
-
-```{r}
-grafico4 <- perfis %>% ggplot(aes(x=creditos_matriculados,fill=forma_evasao_s)) +
-  facet_wrap(~forma_evasao_s,ncol=1) + 
-  geom_histogram(binwidth = 8) + labs(
-  title="", x="Créditos Matriculados", y="Número de alunos"
-) + theme(text=element_text(family="A"),strip.background = element_rect(fill = "grey"),strip.text.x = element_text(colour = 'black')
-) + scale_fill_discrete(guide="none") +  scale_x_continuous(breaks=c(0,50,100,150,200,250,300,350,400))
-
-ggsave("grafico4.png",grafico4,width = 5,height = 5)
-
-
-grafico4
 ```
 
 
@@ -556,19 +536,17 @@ altera_grupo_V <- Vectorize(altera_grupo)
 
 ```{r}
 grafico_11 <- perfis %>% mutate(cluster=altera_grupo_V(cluster)) %>%
-  group_by(cluster) %>%
+  group_by(cluster,forma_evasao_s) %>%
   summarise(
     contagem = n(), .groups = 'drop') %>%
 
-  ggplot(aes(x = cluster, y=contagem,label=contagem, fill="#fff")) +
-  geom_bar(stat="identity",width = 0.9,alpha=0.5) +
-  geom_text(size= 3.5, vjust = -0.3) +
+  ggplot(aes(x = cluster, y=contagem,label=contagem, fill=forma_evasao_s)) +
+  geom_bar(stat="identity",width = 0.9,alpha=0.9) +
+   
   labs(
     x="Grupo",
-    y="Número de alunos"
-  ) +
-
-  scale_fill_discrete(guide="none") +  theme(text=element_text(family="A"))
+    y="Número de alunos",  fill = "Tipo de Evasão"
+  ) + theme(text=element_text(family="A"))
 
 grafico_11
 ggsave("grafico11.png",grafico_11,width = 5,height = 4)
@@ -652,8 +630,21 @@ ggsave("grafico12.png",g,width = 5,height = 4)
 
 
 ```{r}
-#cluster4 <- perfis_l %>% filter(cluster==4) %>% filter(conf=="ok") %>% select("url")
-#write.csv(cluster4,"cluster4.csv",row.names = FALSE)
+grafico_11 <- perfis_l %>% filter(conf=="ok")  %>%  mutate(cluster=altera_grupo_V(cluster)) %>%
+  group_by(cluster,forma_evasao_s) %>%
+  summarise(
+    contagem = n(), .groups = 'drop') %>%
+
+  ggplot(aes(x = cluster, y=contagem,label=contagem, fill=forma_evasao_s)) +
+  geom_bar(stat="identity",width = 0.9,alpha=0.9) +
+   
+  labs(
+    x="Grupo",
+    y="Número de alunos",  fill = "Tipo de Evasão"
+  ) + theme(text=element_text(family="A"))
+
+grafico_11
+ggsave("grafico51.png",grafico_11,width = 5,height = 4)
 ```
 
 #Análise de Texto
@@ -687,7 +678,6 @@ df <- data.frame(word = names(word.freq), word.freq)
 
 df <- df %>% filter(word.freq > x)
 
-
 return(wordcloud2(df,size=sizeT,color='random-dark'))
   
 }
@@ -716,6 +706,55 @@ wordcloud_im(habitual,2,1)
 ```
 
 ```{r}
+data("mtcars")
+df=scale(mtcars)
+head(df, n=3)
+```
 
+```{r}
+# Número ótimo de clusters
+library(factoextra)
+
+ws <- fviz_nbclust(df, kmeans, method = "wss")+ theme(axis.text.x = element_text(size = 10),text=element_text(family="A"),axis.text.y = element_text(size = 10),axis.title.x = element_text(size = 11),axis.title.y = element_text(size = 11)) + labs(title="Número ótimo de clusters", x="Número de clusters", y="Soma dos quadrados intra-clusters") + geom_vline(xintercept = 4, linetype = 2)
+
+ggsave("cotovelo.png",ws,width = 5,
+  height = 4)
+
+ws
+```
+
+```{r}
+# Clusterização k-means
+set.seed(123)
+km.res=kmeans(df, 4, nstart=25)
+print(km.res)
+```
+
+```{r}
+aggregate(mtcars, by=list(cluster=km.res$cluster), mean)
+```
+
+```{r}
+mtcars2=cbind(mtcars, cluster=km.res$cluster)
+head(mtcars2)
+```
+
+```{r}
+library(ggplot2)
+library(factoextra)
+options(ggrepel.max.overlaps = Inf)
+
+k <- fviz_cluster(km.res, data=mtcars2,
+             palette = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07"),
+             ellipse.type="euclid",
+             star.plot=TRUE,
+             repel=TRUE,
+             ggtheme=theme_minimal()
+             ) + labs(x="Dimensão 1 (57.1%)", y="Dimensão 2 (22.1%)",title="", fill="Grupo") + theme(text=element_text(family="A"))
+
+k
+
+ggsave("k.png",k,width = 6,
+  height = 4)
 ```
 
